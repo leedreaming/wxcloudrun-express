@@ -1,8 +1,15 @@
+// ⭐新增：最开头加载环境变量（必须第一行，优先读取敏感配置）
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
+
+// ⭐新增：引入二手书平台必需依赖（安全防护、文件上传）
+const helmet = require('helmet');
+const multer = require('multer');
 
 // 连接数据库
 const { connectToDatabase } = require('./database');
@@ -16,15 +23,33 @@ const app = express();
 // 微信云托管通过 PORT 环境变量指定端口
 const PORT = process.env.PORT || 8080;
 
+// ⭐新增1：配置multer文件上传（二手书图片专用，单张≤2M，存uploads目录）
+const upload = multer({
+  dest: path.join(__dirname, 'uploads/'), // 绝对路径更安全，避免部署路径问题
+  limits: { fileSize: 2 * 1024 * 1024 } // 单张图片最大2M，适配小程序上传
+});
+// ⭐新增：导出upload实例，供routes/api.js的接口使用（比如书籍发布接口需要图片上传）
+app.locals.upload = upload;
+
 // 中间件
-app.use(cors());
+// ⭐新增2：安全防护中间件（优先配置，防止XSS/CSRF等攻击）
+app.use(helmet());
+// ⭐新增3：完善cors配置（从.env读合法域名，仅允许小程序访问，防止接口滥用）
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*', // 优先读环境变量，无则临时允许所有（开发阶段）
+  credentials: true, // 允许携带cookie/登录态，适配小程序登录
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // 仅允许常用请求方式
+  allowedHeaders: ['Content-Type', 'Authorization'] // 允许的请求头
+}));
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// 静态文件（可选）
+// 静态文件
 app.use(express.static(path.join(__dirname, '.')));
+// ⭐新增4：托管uploads图片目录（让前端能直接访问上传的书籍封面/内页）
+app.use('/uploads', express.static(path.join(__dirname, 'uploads/')));
 
 // API 路由（所有接口以 /api 开头）
 app.use('/api', apiRouter);
