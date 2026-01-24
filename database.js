@@ -2,9 +2,9 @@ const { MongoClient } = require('mongodb');
 
 let dbInstance = null;
 
-// 从环境变量获取数据库连接信息
+// ⭐修改：环境变量名与.env统一（原MONGODB_NAME → MONGODB_DB_NAME，匹配之前的.env配置）
 const DB_URL = process.env.MONGODB_URL || 'mongodb://localhost:27017';
-const DB_NAME = process.env.MONGODB_NAME || 'secondhand_books';
+const DB_NAME = process.env.MONGODB_DB_NAME || 'secondhand_books';
 
 async function connectToDatabase() {
   if (dbInstance) {
@@ -13,8 +13,7 @@ async function connectToDatabase() {
 
   try {
     const client = new MongoClient(DB_URL, {
-      useUnifiedTopology: true,
-      useNewUrlParser: true
+      // ⭐删除：useUnifiedTopology/useNewUrlParser 是MongoDB 4.x过时配置，6.x+无需配置，避免警告
     });
 
     await client.connect();
