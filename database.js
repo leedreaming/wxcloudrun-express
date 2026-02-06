@@ -1,37 +1,40 @@
-const { MongoClient } = require('mongodb');
+const mysql = require('mysql2/promise');
 
-let dbInstance = null;
+let pool = null;
 
-// ⭐修改：环境变量名与.env统一（原MONGODB_NAME → MONGODB_DB_NAME，匹配之前的.env配置）
-const DB_URL = process.env.MONGODB_URL || 'mongodb://localhost:27017';
-const DB_NAME = process.env.MONGODB_DB_NAME || 'secondhand_books';
+// 从环境变量读取 MySQL 配置
+const DB_CONFIG = {
+  host: process.env.MYSQL_HOST,
+  port: process.env.MYSQL_PORT || 3306,
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};
 
+// 创建连接池（推荐生产环境使用）
 async function connectToDatabase() {
-  if (dbInstance) {
-    return dbInstance;
-  }
-
+  if (pool) return pool;
   try {
-    const client = new MongoClient(DB_URL, {
-      // ⭐删除：useUnifiedTopology/useNewUrlParser 是MongoDB 4.x过时配置，6.x+无需配置，避免警告
-    });
-
-    await client.connect();
-    dbInstance = client.db(DB_NAME);
-    
-    console.log('成功连接到数据库');
-    return dbInstance;
+    pool = mysql.createPool(DB_CONFIG);
+    // 测试连接
+    await pool.getConnection();
+    console.log('✅ MySQL 数据库连接成功');
+    return pool;
   } catch (error) {
-    console.error('数据库连接失败:', error);
+    console.error('❌ MySQL 连接失败:', error);
     throw error;
   }
 }
 
+// 获取数据库实例
 function getDb() {
-  if (!dbInstance) {
+  if (!pool) {
     throw new Error('数据库未连接，请先调用 connectToDatabase');
   }
-  return dbInstance;
+  return pool;
 }
 
 module.exports = {
